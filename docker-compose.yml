@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Backend API with SQLite
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: conversational-ai-backend
+    environment:
+      DATABASE_URL: sqlite:///./data/conversational_ai.db
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      ENVIRONMENT: production
+    ports:
+      - "8000:8000"
+    networks:
+      - app-network
+    volumes:
+      - ./backend:/app
+      - sqlite_data:/app/data  # Persist SQLite database
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: conversational-ai-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for session management (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: conversational-ai-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sqlite_data:  # SQLite database persistence
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge
+
